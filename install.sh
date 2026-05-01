@@ -69,7 +69,7 @@ print_access_urls() {
 get_running_port() {
     systemctl show "$SERVICE_NAME" -p Environment 2>/dev/null \
         | grep -oE 'PANEL_ADDR=[^ ]+|PANEL_LISTEN=[^ ]+' \
-        | grep -oE '[0-9]+$'
+        | sed 's/.*:\([0-9]*\)$/\1/'
 }
 
 # ─── 管理面板 ────────────────────────────────────────────────────────────────
