@@ -177,6 +177,19 @@ init_env_file() {
     log "  - 已存在: $ENV_FILE ✅ (跳过覆盖，保留用户修改)"
     return
   fi
+
+  # 自动检测 IPv6：有 IPv6 接口则用 [::1] 双栈 loopback，否则纯 IPv4
+  local default_addr
+  if [ -s /proc/net/if_inet6 ]; then
+    default_addr="[::1]:${PANEL_PORT}"
+    log "  - 检测到 IPv6 支持，PANEL_ADDR 默认为 [::1]:${PANEL_PORT} (双栈)"
+  else
+    default_addr="127.0.0.1:${PANEL_PORT}"
+    log "  - 未检测到 IPv6，PANEL_ADDR 默认为 127.0.0.1:${PANEL_PORT}"
+  fi
+  # 允许用户通过环境变量强制指定
+  default_addr="${PANEL_ADDR:-$default_addr}"
+
   $SUDO tee "$ENV_FILE" >/dev/null <<EOF
 # ============================================================
 # mpd2hls 运行配置 (由 install.sh 生成)
@@ -185,7 +198,13 @@ init_env_file() {
 
 # ---------- 面板监听 ----------
 # 默认只监听本机，如需公网访问请放在 HTTPS 反向代理后面
-PANEL_ADDR=127.0.0.1:${PANEL_PORT}
+# 监听写法：
+#   127.0.0.1:${PANEL_PORT}     仅 IPv4 本机
+#   [::1]:${PANEL_PORT}         仅 IPv6 本机
+#   [::]:${PANEL_PORT}          双栈监听所有接口（公网，需先设 PANEL_ALLOW_INSECURE_PUBLIC_BIND=1 或前置 HTTPS）
+#   0.0.0.0:${PANEL_PORT}       仅 IPv4 所有接口
+# 若 IPv4 loopback/unspecified 绑定失败，面板会自动尝试 [::1]/[::] fallback。
+PANEL_ADDR=${default_addr}
 
 # 内建 HTTPS 监听（两项必须同时设置）；留空时使用反向代理或仅监听 127.0.0.1
 PANEL_TLS_CERT=
@@ -308,13 +327,21 @@ print_banner() {
   ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
   [ -z "$ip" ] && ip="$(hostname -i 2>/dev/null | awk '{print $1}')"
   [ -z "$ip" ] && ip="<服务器 IP>"
+  # 同时尝试获取 IPv6
+  local ip6
+  ip6="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9a-fA-F:]+$' | grep ':' | head -1)"
 
   echo
   echo -e "${GREEN}╔════════════════════════════════════════════╗${NC}"
   echo -e "${GREEN}║   ✅  mpd2hls 安装并启动完成 (${arch})         ║${NC}"
   echo -e "${GREEN}╚════════════════════════════════════════════╝${NC}"
   echo -e "  ${BOLD}访问地址${NC}"
-  echo -e "    本机面板 : ${CYAN}http://127.0.0.1:${PANEL_PORT}${PANEL_ADMIN_PATH}${NC}"
+  if [ -s /proc/net/if_inet6 ]; then
+    echo -e "    本机 IPv4 : ${CYAN}http://127.0.0.1:${PANEL_PORT}${PANEL_ADMIN_PATH}${NC}"
+    echo -e "    本机 IPv6 : ${CYAN}http://[::1]:${PANEL_PORT}${PANEL_ADMIN_PATH}${NC}"
+  else
+    echo -e "    本机面板 : ${CYAN}http://127.0.0.1:${PANEL_PORT}${PANEL_ADMIN_PATH}${NC}"
+  fi
   echo -e "    若已配置反代/公网: ${CYAN}https://<你的域名>${PANEL_ADMIN_PATH}${NC}"
   echo -e "  ${BOLD}文件位置${NC}"
   echo -e "    二进制   : ${BIN_PATH}"
