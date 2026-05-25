@@ -1,5 +1,13 @@
 <div align="center">
+<p align="center">
+  <b>简体中文</b> · <a href="README.en.md">English</a>
+</p>
+README.en.md（英文）顶部：
 
+
+<p align="center">
+  <a href="README.md">简体中文</a> · <b>English</b>
+</p>
 # MPD2HLS
 
 **MPD/DASH → HLS 转换服务 · 一键安装 · 自动管理**
