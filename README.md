@@ -181,12 +181,10 @@ http://1.2.3.4:9527/admin
 把以下内容保存为 `/etc/nginx/conf.d/mpd2hls.conf`（或 `/etc/nginx/sites-available/mpd2hls`）：
 
 ```nginx
-# ============================================================
 # 第一层：内部解压服务，监听 9528
-# ============================================================
 server {
     listen 127.0.0.1:9528;
-    
+
     proxy_pass_header Server;
 
     location / {
@@ -197,28 +195,112 @@ server {
     }
 }
 
-# ============================================================
-# 第二层：对外服务，做内容替换和伪装
-# ============================================================
+# 第二层：对外服务
 server {
     listen 80;
-    server_name iptv.example.com;          # ← 修改为你的域名
-    client_max_body_size 128m
+    server_name 你的域名卸载这里;
+
     access_log /var/log/nginx/mpd_access.log;
     error_log  /var/log/nginx/mpd_error.log warn;
+
+    client_max_body_size 200m;
 
     proxy_set_header Host              $host;
     proxy_set_header X-Real-IP         $remote_addr;
     proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    proxy_connect_timeout   60s;
-    proxy_send_timeout      300s;
-    proxy_read_timeout      300s;
-    proxy_buffering         off;
-    proxy_cache             off;
+    proxy_connect_timeout 60s;
+    proxy_send_timeout    300s;
+    proxy_read_timeout    300s;
 
-    # ─── master.m3u8：伪装成纯文本 ───
+    proxy_buffering off;
+    proxy_cache off;
+
+    # 原始流直通：/ch/{token}/raw
+    # 开启原始流直通后，程序会返回 302 Location: 原始地址
+    location ~ ^/ch/[a-zA-Z0-9_-]+/raw$ {
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Range, Origin, Accept, User-Agent" always;
+            add_header Access-Control-Max-Age 86400 always;
+            add_header Content-Length 0;
+            add_header Content-Type "text/plain";
+            return 204;
+        }
+
+        proxy_pass http://127.0.0.1:9527;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+
+        proxy_intercept_errors off;
+        proxy_redirect off;
+
+        gzip off;
+        gunzip off;
+
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+
+        add_header Cache-Control "no-store" always;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Range, Origin, Accept, User-Agent" always;
+    }
+
+    # 原始流直通：/live/{channel_id}/raw
+    location ~ ^/live/[a-zA-Z0-9_-]+/raw$ {
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Range, Origin, Accept, User-Agent" always;
+            add_header Access-Control-Max-Age 86400 always;
+            add_header Content-Length 0;
+            add_header Content-Type "text/plain";
+            return 204;
+        }
+
+        proxy_pass http://127.0.0.1:9527;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_cache off;
+
+        proxy_intercept_errors off;
+        proxy_redirect off;
+
+        gzip off;
+        gunzip off;
+
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+
+        add_header Cache-Control "no-store" always;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Range, Origin, Accept, User-Agent" always;
+    }
+
+    # master.m3u8：伪装成纯文本
     location ~ ^/ch/([a-zA-Z0-9_-]+)/master\.m3u8$ {
         proxy_pass http://127.0.0.1:9528;
         proxy_set_header Accept-Encoding "";
@@ -232,7 +314,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── video.m3u8：把 .ts 替换为 .jpeg ───
+    # video.m3u8：把 .ts 替换成 .jpeg
     location ~ ^/ch/([a-zA-Z0-9_-]+)/video\.m3u8$ {
         proxy_pass http://127.0.0.1:9528;
         proxy_set_header Accept-Encoding "";
@@ -254,7 +336,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── audio.m3u8：把 .ts 替换为 .jpeg ───
+    # audio.m3u8：把 .ts 替换成 .jpeg
     location ~ ^/ch/([a-zA-Z0-9_-]+)/audio\.m3u8$ {
         proxy_pass http://127.0.0.1:9528;
         proxy_set_header Accept-Encoding "";
@@ -276,7 +358,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── 客户端请求 /segments/*.jpeg，内部还原为 .ts ───
+    # /segments/*.jpeg 内部还原为 .ts
     location ~ ^(/ch/[a-zA-Z0-9_-]+/segments/.*?)\.jpeg$ {
         rewrite ^(/ch/[a-zA-Z0-9_-]+/segments/.*?)\.jpeg$ $1.ts break;
         proxy_pass http://127.0.0.1:9527;
@@ -287,7 +369,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── 客户端请求 /audio/*.jpeg，内部还原为 .ts ───
+    # /audio/*.jpeg 内部还原为 .ts
     location ~ ^(/ch/[a-zA-Z0-9_-]+/audio/.*?)\.jpeg$ {
         rewrite ^(/ch/[a-zA-Z0-9_-]+/audio/.*?)\.jpeg$ $1.ts break;
         proxy_pass http://127.0.0.1:9527;
@@ -298,7 +380,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── video TS 直接请求兜底伪装 ───
+    # video TS 直接请求伪装
     location ~ ^/ch/([a-zA-Z0-9_-]+)/segments/.*\.ts$ {
         proxy_pass http://127.0.0.1:9527;
 
@@ -308,7 +390,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── audio TS 直接请求兜底伪装 ───
+    # audio TS 直接请求伪装
     location ~ ^/ch/([a-zA-Z0-9_-]+)/audio/.*\.ts$ {
         proxy_pass http://127.0.0.1:9527;
 
@@ -318,12 +400,12 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # ─── 兜底路由：OPTIONS 预检 + 透明代理 ───
+    # 兜底路由
     location / {
         if ($request_method = OPTIONS) {
             add_header Access-Control-Allow-Origin "*" always;
-            add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
-            add_header Access-Control-Allow-Headers "Range, Origin, Accept" always;
+            add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Range, Origin, Accept, User-Agent" always;
             add_header Access-Control-Max-Age 86400;
             add_header Content-Length 0;
             add_header Content-Type "text/plain";
@@ -333,8 +415,8 @@ server {
         proxy_pass http://127.0.0.1:9527;
 
         add_header Access-Control-Allow-Origin "*" always;
-        add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Range, Origin, Accept" always;
+        add_header Access-Control-Allow-Methods "GET, HEAD, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Range, Origin, Accept, User-Agent" always;
     }
 }
 ```
