@@ -32,6 +32,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/judy-gotv/MPD-HLS/main/insta
 ```
 
 ```bash
+# 直接卸载
 bash install.sh uninstall
 ```
 
