@@ -38,10 +38,10 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 PANEL_PORT="${PANEL_PORT:-9527}"
 PANEL_ADMIN_PATH="${PANEL_ADMIN_PATH:-/admin}"
-GH_REPO="${GH_REPO:-judy-gotv/MPD-HLS}"
+GH_REPO="${GH_REPO:-evaslr/MPD-HLS}"
 
 # GitHub Releases - latest 自动指向最新版本
-GH_REPO="${GH_REPO:-judy-gotv/MPD-HLS}"
+GH_REPO="${GH_REPO:-evaslr/MPD-HLS}"
 GH_RELEASE_TAG="${GH_RELEASE_TAG:-latest}"
 if [ "$GH_RELEASE_TAG" = "latest" ]; then
   GH_BASE="https://github.com/${GH_REPO}/releases/latest/download"
