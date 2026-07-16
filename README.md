@@ -31,6 +31,10 @@
 bash <(curl -fsSL https://raw.githubusercontent.com/judy-gotv/MPD-HLS/main/install.sh)
 ```
 
+```bash
+bash install.sh uninstall
+```
+
 或下载后执行：
 
 ```bash
